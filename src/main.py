@@ -15,31 +15,35 @@ load_dotenv()
 # Default user ID for memory operations
 DEFAULT_USER_ID = "user"
 
+
 # Create a dataclass for our application context
 @dataclass
 class Mem0Context:
     """Context for the Mem0 MCP server."""
+
     mem0_client: Memory
+
 
 @asynccontextmanager
 async def mem0_lifespan(server: FastMCP) -> AsyncIterator[Mem0Context]:
     """
     Manages the Mem0 client lifecycle.
-    
+
     Args:
         server: The FastMCP server instance
-        
+
     Yields:
         Mem0Context: The context containing the Mem0 client
     """
     # Create and return the Memory client with the helper function in utils.py
     mem0_client = get_mem0_client()
-    
+
     try:
         yield Mem0Context(mem0_client=mem0_client)
     finally:
         # No explicit cleanup needed for the Mem0 client
         pass
+
 
 # Initialize FastMCP server with the Mem0 client as context
 mcp = FastMCP(
@@ -47,8 +51,9 @@ mcp = FastMCP(
     description="MCP server for long term memory storage and retrieval with Mem0",
     lifespan=mem0_lifespan,
     host=os.getenv("HOST", "0.0.0.0"),
-    port=os.getenv("PORT", "8050")
-)        
+    port=os.getenv("PORT", "8050"),
+)
+
 
 @mcp.tool()
 async def save_memory(ctx: Context, text: str) -> str:
@@ -65,14 +70,19 @@ async def save_memory(ctx: Context, text: str) -> str:
         mem0_client = ctx.request_context.lifespan_context.mem0_client
         messages = [{"role": "user", "content": text}]
         mem0_client.add(messages, user_id=DEFAULT_USER_ID)
-        return f"Successfully saved memory: {text[:100]}..." if len(text) > 100 else f"Successfully saved memory: {text}"
+        return (
+            f"Successfully saved memory: {text[:100]}..."
+            if len(text) > 100
+            else f"Successfully saved memory: {text}"
+        )
     except Exception as e:
         return f"Error saving memory: {str(e)}"
+
 
 @mcp.tool()
 async def get_all_memories(ctx: Context) -> str:
     """Get all stored memories for the user.
-    
+
     Call this tool when you need complete context of all previously memories.
 
     Args:
@@ -91,6 +101,7 @@ async def get_all_memories(ctx: Context) -> str:
         return json.dumps(flattened_memories, indent=2)
     except Exception as e:
         return f"Error retrieving memories: {str(e)}"
+
 
 @mcp.tool()
 async def search_memories(ctx: Context, query: str, limit: int = 3) -> str:
@@ -115,14 +126,16 @@ async def search_memories(ctx: Context, query: str, limit: int = 3) -> str:
     except Exception as e:
         return f"Error searching memories: {str(e)}"
 
+
 async def main():
     transport = os.getenv("TRANSPORT", "sse")
-    if transport == 'sse':
+    if transport == "sse":
         # Run the MCP server with sse transport
         await mcp.run_sse_async()
     else:
         # Run the MCP server with stdio transport
         await mcp.run_stdio_async()
+
 
 if __name__ == "__main__":
     asyncio.run(main())
