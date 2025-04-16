@@ -1,20 +1,27 @@
-FROM python:3.12-slim
-
-ARG PORT=8050
+FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim AS base
 
 WORKDIR /app
 
-# Install uv
-RUN pip install uv
+FROM base as builder
 
-# Copy the MCP server files
+COPY pyproject.toml uv.lock /app/
+
+RUN uv sync --frozen
+
+FROM base as production
+
+ARG PORT=8050
+ENV PORT=${PORT}
+
+RUN useradd -m -s /bin/bash appuser
+
+COPY --from=builder /app/.venv /app/.venv
 COPY . .
 
-# Install packages
-RUN python -m venv .venv
-RUN uv pip install -e .
+ENV PATH="/app/.venv/bin:$PATH"
+
+ENTRYPOINT []
 
 EXPOSE ${PORT}
 
-# Command to run the MCP server
 CMD ["uv", "run", "src/main.py"]
